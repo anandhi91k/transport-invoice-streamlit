@@ -212,7 +212,7 @@ def make_pdf(data):
         rows,
         colWidths=[
             9 * mm, 16 * mm, 22 * mm, 38 * mm,
-            22 * mm, 18 * mm, 25 * mm, 36 * mm
+            28 * mm, 18 * mm, 25 * mm, 30 * mm
         ],
         repeatRows=1
     )
