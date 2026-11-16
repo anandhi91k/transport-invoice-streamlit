@@ -289,11 +289,20 @@ def make_pdf(data):
 
     
     # Signature between company name and authorised signatory
+ 
+    # Right-aligned company name, signature and designation
+    right_sign = ParagraphStyle(
+        "RightSign",
+        parent=body,
+        alignment=TA_RIGHT
+    )
+
     signature_cell = ""
 
     if SIGNATURE_PATH.exists():
         image_reader = ImageReader(str(SIGNATURE_PATH))
         image_width, image_height = image_reader.getSize()
+
         target_width = 42 * mm
         target_height = target_width * image_height / image_width
 
@@ -303,16 +312,12 @@ def make_pdf(data):
             height=target_height,
             hAlign="RIGHT"
         )
-    else:
-        signature_cell = Paragraph(
-            "[Add default_esign.png beside app.py]", body
-        )
 
     signoff = Table(
         [
-            [Paragraph(f"<b>For {data['company_name']}</b>", body)],
+            [Paragraph(f"<b>For {data['company_name']}</b>", right_sign)],
             [signature_cell],
-            [Paragraph("Authorised Signatory", body)]
+            [Paragraph("Authorised Signatory", right_sign)]
         ],
         colWidths=[75 * mm],
         hAlign="RIGHT"
@@ -328,6 +333,7 @@ def make_pdf(data):
     ]))
 
     story.append(signoff)
+
 
     doc.build(story)
     buffer.seek(0)
