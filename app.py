@@ -212,7 +212,7 @@ def make_pdf(data):
         rows,
         colWidths=[
             9 * mm, 16 * mm, 22 * mm, 38 * mm,
-            22 * mm, 18 * mm, 25 * mm, 37 * mm
+            22 * mm, 18 * mm, 25 * mm, 36 * mm
         ],
         repeatRows=1
     )
@@ -281,7 +281,18 @@ def make_pdf(data):
                 hAlign="RIGHT"
             )
             story.extend([
-                Table([[signature]], colWidths=[165 * mm], hAlign="RIGHT"),
+                Table(
+                    [[signature]],
+                    colWidths=[75 * mm],
+                    hAlign="RIGHT",
+                    style=TableStyle([
+                        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 0)
+                    ])
+                ),
                 Spacer(1, 2)
             ])
         except Exception:
@@ -334,122 +345,121 @@ with st.sidebar:
     st.caption("2. Add transport trip rows")
     st.caption("3. Generate and download the PDF")
 
-with st.form("invoice_form"):
-    st.markdown("## 01 · Company and invoice details")
-    st.markdown(
-        '<div class="section-note">Company information and invoice reference.</div>',
-        unsafe_allow_html=True
+st.markdown("## 01 · Company and invoice details")
+st.markdown(
+    '<div class="section-note">Company information and invoice reference.</div>',
+    unsafe_allow_html=True
+)
+
+left, right = st.columns(2)
+with left:
+    company_name = st.text_input("Company name", DEFAULT_COMPANY_NAME)
+    company_address = st.text_area(
+        "Company address", DEFAULT_COMPANY_ADDRESS, height=85
+    )
+    company_mobile = st.text_input(
+        "Company mobile number", DEFAULT_COMPANY_MOBILE
+    )
+with right:
+    bill_title = st.text_input("Bill title", DEFAULT_BILL_TITLE)
+    invoice_no = st.text_input(
+        "Invoice number", f"INV-{date.today():%Y%m%d}-001"
+    )
+    invoice_date = st.date_input("Invoice date", date.today())
+    billing_month = st.text_input(
+        "Billing month", date.today().strftime("%B %Y")
     )
 
-    left, right = st.columns(2)
-    with left:
-        company_name = st.text_input("Company name", DEFAULT_COMPANY_NAME)
-        company_address = st.text_area(
-            "Company address", DEFAULT_COMPANY_ADDRESS, height=85
-        )
-        company_mobile = st.text_input(
-            "Company mobile number", DEFAULT_COMPANY_MOBILE
-        )
-    with right:
-        bill_title = st.text_input("Bill title", DEFAULT_BILL_TITLE)
-        invoice_no = st.text_input(
-            "Invoice number", f"INV-{date.today():%Y%m%d}-001"
-        )
-        invoice_date = st.date_input("Invoice date", date.today())
-        billing_month = st.text_input(
-            "Billing month", date.today().strftime("%B %Y")
-        )
-
-    st.markdown("---")
-    st.markdown("## 02 · Customer details")
-    left, right = st.columns(2)
-    with left:
-        client_name = st.text_input(
-            "Customer / Bill To name", DEFAULT_CUSTOMER_NAME
-        )
-        client_address = st.text_area(
-            "Customer address", DEFAULT_CUSTOMER_ADDRESS, height=85
-        )
-    with right:
-        st.info("Customer mobile number and GSTIN are not included.")
-
-    st.markdown("---")
-    st.markdown("## 03 · Transport trip details")
-    st.markdown(
-        '<div class="section-note">Add a row for each trip. '
-        'Enter the charge in the final column.</div>',
-        unsafe_allow_html=True
+st.markdown("---")
+st.markdown("## 02 · Customer details")
+left, right = st.columns(2)
+with left:
+    client_name = st.text_input(
+        "Customer / Bill To name", DEFAULT_CUSTOMER_NAME
     )
-
-    default_trips = pd.DataFrame([{
-        "Date": date.today().strftime("%d/%m/%Y"),
-        "Vehicle No.": "",
-        "To": "",
-        "Weight": "",
-        "Timing": "10am-3pm",
-        "Amount": 0.0
-    }])
-
-    trips = st.data_editor(
-        default_trips,
-        num_rows="dynamic",
-        use_container_width=True,
-        column_config={
-            "Amount": st.column_config.NumberColumn(
-                "Amount", min_value=0, step=100, format="%.2f"
-            ),
-            "To": st.column_config.TextColumn(
-                "To / Destination", width="medium"
-            ),
-            "Timing": st.column_config.TextColumn(
-                "Timing", width="medium"
-            )
-        },
-        key="trip_editor"
+    client_address = st.text_area(
+        "Customer address", DEFAULT_CUSTOMER_ADDRESS, height=85
     )
+with right:
+    st.info("Customer mobile number and GSTIN are not included.")
 
-    st.markdown("### Bill number(s) for each S.No.")
-    st.caption(
-        "Enter bill numbers up to 25 characters (letters, digits and symbols). "
-        "Press Enter for another bill number on the same S.No.; long numbers "
-        "will wrap within the PDF column."
-    )
-    bill_numbers_by_row = []
-    for row_index in range(len(trips)):
-        existing_bill = str(trips.iloc[row_index].get("Bill No", "") or "")
-        bill_text = st.text_area(
-            f"Bill No – S.No. {row_index + 1}",
-            value=existing_bill,
-            key=f"bill_numbers_row_{row_index}",
-            height=68,
-            placeholder="Up to 25 characters; press Enter for the next bill number."
+st.markdown("---")
+st.markdown("## 03 · Transport trip details")
+st.markdown(
+    '<div class="section-note">Add a row for each trip. '
+    'Enter the charge in the final column.</div>',
+    unsafe_allow_html=True
+)
+
+default_trips = pd.DataFrame([{
+    "Date": date.today().strftime("%d/%m/%Y"),
+    "Vehicle No.": "",
+    "To": "",
+    "Weight": "",
+    "Timing": "10am-3pm",
+    "Amount": 0.0
+}])
+
+trips = st.data_editor(
+    default_trips,
+    num_rows="dynamic",
+    use_container_width=True,
+    column_config={
+        "Amount": st.column_config.NumberColumn(
+            "Amount", min_value=0, step=100, format="%.2f"
+        ),
+        "To": st.column_config.TextColumn(
+            "To / Destination", width="medium"
+        ),
+        "Timing": st.column_config.TextColumn(
+            "Timing", width="medium"
         )
-        bill_numbers_by_row.append(bill_text)
+    },
+    key="trip_editor"
+)
 
-    st.markdown("---")
-    st.markdown("## 04 · Bank details")
-    st.caption("You can enter these details later, once finalised.")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        bank = st.text_input("Bank name", value="")
-        account_name = st.text_input("Account name", value="")
-        account_number = st.text_input("Account number", value="")
-    with col_b:
-        ifsc = st.text_input("IFSC code", value="")
-        branch = st.text_input("Branch", value="")
-        upi = st.text_input("UPI ID (optional)", value="")
-
-    terms = st.text_area(
-        "Terms and conditions (one per line)",
-        "Goods transported at owner's risk as per standard carriage terms.\n"
-        "Subject to Sulur / Coimbatore jurisdiction only."
+st.markdown("### Bill number(s) for each S.No.")
+st.caption(
+    "Enter bill numbers up to 25 characters (letters, digits and symbols). "
+    "Press Enter for another bill number on the same S.No.; long numbers "
+    "will wrap within the PDF column."
+)
+bill_numbers_by_row = []
+for row_index in range(len(trips)):
+    existing_bill = str(trips.iloc[row_index].get("Bill No", "") or "")
+    bill_text = st.text_area(
+        f"Bill No – S.No. {row_index + 1}",
+        value=existing_bill,
+        key=f"bill_numbers_row_{row_index}",
+        height=68,
+        placeholder="Up to 25 characters; press Enter for the next bill number."
     )
+    bill_numbers_by_row.append(bill_text)
 
-    submitted = st.form_submit_button(
-        "Generate invoice",
-        type="primary",
-        use_container_width=True
-    )
+st.markdown("---")
+st.markdown("## 04 · Bank details")
+st.caption("You can enter these details later, once finalised.")
+col_a, col_b = st.columns(2)
+with col_a:
+    bank = st.text_input("Bank name", value="")
+    account_name = st.text_input("Account name", value="")
+    account_number = st.text_input("Account number", value="")
+with col_b:
+    ifsc = st.text_input("IFSC code", value="")
+    branch = st.text_input("Branch", value="")
+    upi = st.text_input("UPI ID (optional)", value="")
+
+terms = st.text_area(
+    "Terms and conditions (one per line)",
+    "Goods transported at owner's risk as per standard carriage terms.\n"
+    "Subject to Sulur / Coimbatore jurisdiction only."
+)
+
+submitted = st.button(
+    "Generate invoice",
+    type="primary",
+    use_container_width=True
+)
 
 
 if submitted:
