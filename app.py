@@ -515,6 +515,47 @@ if submitted:
         "terms": terms
     }
 
+    # Signature between company name and authorised signatory
+    signature_cell = ""
+
+    if SIGNATURE_PATH.exists():
+        image_reader = ImageReader(str(SIGNATURE_PATH))
+        image_width, image_height = image_reader.getSize()
+        target_width = 42 * mm
+        target_height = target_width * image_height / image_width
+
+        signature_cell = RLImage(
+            str(SIGNATURE_PATH),
+            width=target_width,
+            height=target_height,
+            hAlign="RIGHT"
+        )
+    else:
+        signature_cell = Paragraph(
+            "[Add default_esign.png beside app.py]", body
+        )
+
+    signoff = Table(
+        [
+            [Paragraph(f"<b>For {data['company_name']}</b>", body)],
+            [signature_cell],
+            [Paragraph("Authorised Signatory", body)]
+        ],
+        colWidths=[75 * mm],
+        hAlign="RIGHT"
+    )
+
+    signoff.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1)
+    ]))
+
+    story.append(signoff)
+
 if "invoice_data" in st.session_state:
     data = st.session_state.invoice_data
     st.markdown("---")
