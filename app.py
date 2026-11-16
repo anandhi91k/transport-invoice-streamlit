@@ -406,10 +406,10 @@ st.markdown(
 
 default_trips = pd.DataFrame([{
     "Date": date.today().strftime("%d/%m/%Y"),
-    "Vehicle No.": "",
+    "Vehicle No.": "TN47S8669",
     "To": "",
-    "Weight": "",
-    "Timing": "10am-3pm",
+    "Weight": "2000 KGS",
+    "Timing": "10AM-8PM",
     "Amount": 0.0
 }])
 
@@ -439,8 +439,13 @@ st.caption(
 )
 
 bill_numbers_by_row = []
+
 for row_index in range(len(trips)):
     existing_bill = str(trips.iloc[row_index].get("Bill No", "") or "")
+
+    if row_index == 0 and not existing_bill:
+        existing_bill = "F22633002100"
+
     bill_text = st.text_area(
         f"Bill No – S.No. {row_index + 1}",
         value=existing_bill,
@@ -448,6 +453,7 @@ for row_index in range(len(trips)):
         height=68,
         placeholder="Up to 25 characters; press Enter for the next bill number."
     )
+
     bill_numbers_by_row.append(bill_text)
 
 st.markdown("---")
