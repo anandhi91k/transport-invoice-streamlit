@@ -287,57 +287,46 @@ def make_pdf(data):
         story.append(Paragraph("Bank details will be added later.", body))
     story.append(Spacer(1, 18))
 
+    
+    # Signature between company name and authorised signatory
+    signature_cell = ""
+
     if SIGNATURE_PATH.exists():
-        try:
-            image_reader = ImageReader(str(SIGNATURE_PATH))
-            image_width, image_height = image_reader.getSize()
-            target_width = 42 * mm
-            target_height = target_width * image_height / image_width
-            signature = RLImage(
-                str(SIGNATURE_PATH),
-                width=target_width,
-                height=target_height,
-                hAlign="RIGHT"
-            )
-            story.extend([
-                Table(
-                    [[signature]],
-                    colWidths=[75 * mm],
-                    hAlign="RIGHT",
-                    style=TableStyle([
-                        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                        ("TOPPADDING", (0, 0), (-1, -1), 0),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 0)
-                    ])
-                ),
-                Spacer(1, 2)
-            ])
-        except Exception:
-            story.append(Paragraph("[Signature image could not be loaded]", body))
+        image_reader = ImageReader(str(SIGNATURE_PATH))
+        image_width, image_height = image_reader.getSize()
+        target_width = 42 * mm
+        target_height = target_width * image_height / image_width
+
+        signature_cell = RLImage(
+            str(SIGNATURE_PATH),
+            width=target_width,
+            height=target_height,
+            hAlign="RIGHT"
+        )
     else:
-        story.append(Paragraph(
-            "<i>Signature image file not found. Add default_esign.png "
-            "beside app.py.</i>",
-            body
-        ))
+        signature_cell = Paragraph(
+            "[Add default_esign.png beside app.py]", body
+        )
 
     signoff = Table(
         [
             [Paragraph(f"<b>For {data['company_name']}</b>", body)],
+            [signature_cell],
             [Paragraph("Authorised Signatory", body)]
         ],
         colWidths=[75 * mm],
         hAlign="RIGHT"
     )
+
     signoff.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2)
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1)
     ]))
+
     story.append(signoff)
 
     doc.build(story)
@@ -515,46 +504,7 @@ if submitted:
         "terms": terms
     }
 
-    # Signature between company name and authorised signatory
-    signature_cell = ""
-
-    if SIGNATURE_PATH.exists():
-        image_reader = ImageReader(str(SIGNATURE_PATH))
-        image_width, image_height = image_reader.getSize()
-        target_width = 42 * mm
-        target_height = target_width * image_height / image_width
-
-        signature_cell = RLImage(
-            str(SIGNATURE_PATH),
-            width=target_width,
-            height=target_height,
-            hAlign="RIGHT"
-        )
-    else:
-        signature_cell = Paragraph(
-            "[Add default_esign.png beside app.py]", body
-        )
-
-    signoff = Table(
-        [
-            [Paragraph(f"<b>For {data['company_name']}</b>", body)],
-            [signature_cell],
-            [Paragraph("Authorised Signatory", body)]
-        ],
-        colWidths=[75 * mm],
-        hAlign="RIGHT"
-    )
-
-    signoff.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 1),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1)
-    ]))
-
-    story.append(signoff)
+   
 
 if "invoice_data" in st.session_state:
     data = st.session_state.invoice_data
