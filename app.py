@@ -22,6 +22,8 @@ st.set_page_config(
     layout="wide"
 )
 
+# ------------------------- DEFAULT DETAILS -------------------------
+
 DEFAULT_COMPANY_NAME = "Sri Selvamurugan Transports"
 DEFAULT_COMPANY_ADDRESS = (
     "3/211-14, Silver Springs, Kangayempalayam, Sulur-641402"
@@ -35,6 +37,9 @@ DEFAULT_CUSTOMER_ADDRESS = (
 )
 
 SIGNATURE_PATH = Path(__file__).resolve().parent / "default_esign.png"
+
+
+# ------------------------- PAGE STYLING -------------------------
 
 st.markdown("""
 <style>
@@ -81,15 +86,22 @@ hr {border-color:#dce4ef!important}
 """, unsafe_allow_html=True)
 
 
+# ------------------------- HELPER FUNCTIONS -------------------------
+
 def money(value):
+    """Format amount without a currency symbol."""
     try:
         return f"{float(value or 0):,.2f}"
     except (TypeError, ValueError):
         return "0.00"
 
 
+# ------------------------- PDF GENERATION -------------------------
+
 def make_pdf(data):
+
     buffer = BytesIO()
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -100,6 +112,7 @@ def make_pdf(data):
     )
 
     styles = getSampleStyleSheet()
+
     navy = colors.HexColor("#17365D")
     pale = colors.HexColor("#EAF0F7")
 
@@ -110,6 +123,17 @@ def make_pdf(data):
         fontSize=8,
         leading=11
     )
+
+    # Larger company name in the first line
+    company_style = ParagraphStyle(
+        "CompanyName",
+        parent=body,
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        textColor=navy
+    )
+
     title_style = ParagraphStyle(
         "InvoiceTitle",
         parent=styles["Title"],
@@ -119,6 +143,7 @@ def make_pdf(data):
         alignment=1,
         spaceAfter=5
     )
+
     bill_number_style = ParagraphStyle(
         "BillNumber",
         parent=body,
@@ -127,6 +152,7 @@ def make_pdf(data):
         wordWrap="CJK",
         splitLongWords=1
     )
+
     destination_style = ParagraphStyle(
         "Destination",
         parent=body,
@@ -136,27 +162,50 @@ def make_pdf(data):
         splitLongWords=1
     )
 
+    right_sign = ParagraphStyle(
+        "RightSign",
+        parent=body,
+        alignment=2
+    )
+
     story = [
         Paragraph(data["bill_title"].upper(), title_style),
+
         Paragraph(
-            f"<b>{data['company_name']}</b><br/>"
-            f"{data['company_address']}<br/>"
-            f"Mobile: {data['company_mobile']}",
+            f"<b>{escape(data['company_name'])}</b>",
+            company_style
+        ),
+
+        Paragraph(
+            f"{escape(data['company_address'])}<br/>"
+            f"Mobile: {escape(data['company_mobile'])}",
             body
         ),
+
         Spacer(1, 8)
     ]
 
-    invoice_meta = [[
-        "Invoice No.", data["invoice_no"],
-        "Invoice Date", data["invoice_date"].strftime("%d/%m/%Y")
-    ], [
-        "Billing Month", data["billing_month"], "", ""
-    ]]
+    # Invoice number and date
+    invoice_meta = [
+        [
+            "Invoice No.",
+            data["invoice_no"],
+            "Invoice Date",
+            data["invoice_date"].strftime("%d/%m/%Y")
+        ],
+        [
+            "Billing Month",
+            data["billing_month"],
+            "",
+            ""
+        ]
+    ]
+
     meta_table = Table(
         invoice_meta,
         colWidths=[25 * mm, 58 * mm, 24 * mm, 58 * mm]
     )
+
     meta_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
         ("BACKGROUND", (0, 0), (0, -1), pale),
@@ -166,42 +215,72 @@ def make_pdf(data):
         ("PADDING", (0, 0), (-1, -1), 6),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE")
     ]))
+
     story.extend([meta_table, Spacer(1, 9)])
 
+    # Company and customer details
     parties = [
-        [Paragraph("<b>COMPANY</b>", body), Paragraph("<b>BILL TO</b>", body)],
+        [
+            Paragraph("<b>COMPANY</b>", body),
+            Paragraph("<b>BILL TO</b>", body)
+        ],
         [
             Paragraph(
-                f"<b>{data['company_name']}</b><br/>"
-                f"{data['company_address']}<br/>"
-                f"Mobile: {data['company_mobile']}",
+                f"<b>{escape(data['company_name'])}</b><br/>"
+                f"{escape(data['company_address'])}<br/>"
+                f"Mobile: {escape(data['company_mobile'])}",
                 body
             ),
             Paragraph(
-                f"<b>{data['client_name']}</b><br/>{data['client_address']}",
+                f"<b>{escape(data['client_name'])}</b><br/>"
+                f"{escape(data['client_address'])}",
                 body
             )
         ]
     ]
-    parties_table = Table(parties, colWidths=[82.5 * mm, 82.5 * mm])
+
+    parties_table = Table(
+        parties,
+        colWidths=[82.5 * mm, 82.5 * mm]
+    )
+
     parties_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
         ("BACKGROUND", (0, 0), (-1, 0), pale),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("PADDING", (0, 0), (-1, -1), 7)
     ]))
+
     story.extend([parties_table, Spacer(1, 9)])
 
+    # Transport trip table
     rows = [[
-        "S.No.", "Date", "Vehicle No.", "Bill No(s)",
-        "To", "Weight", "Timing", "Amount"
+        "S.No.",
+        "Date",
+        "Vehicle No.",
+        "Bill No(s)",
+        "To",
+        "Weight",
+        "Timing",
+        "Amount"
     ]]
 
     for index, row in enumerate(data["items"], start=1):
+
+        destination_text = textwrap.wrap(
+            str(row.get("To", "")).strip(),
+            width=19,
+            break_long_words=True,
+            break_on_hyphens=True
+        )
+
         rows.append([
             str(index),
+
             str(row.get("Date", "")),
+
             str(row.get("Vehicle No.", "")),
+
             Paragraph(
                 "<br/>".join(
                     escape(line.strip())
@@ -210,31 +289,36 @@ def make_pdf(data):
                 ),
                 bill_number_style
             ),
+
             Paragraph(
                 "<br/>".join(
-                    escape(line)
-                    for line in textwrap.wrap(
-                        str(row.get("To", "")).strip(),
-                        width=19,
-                        break_long_words=True,
-                        break_on_hyphens=True
-                    )
+                    escape(line) for line in destination_text
                 ),
                 destination_style
             ),
+
             str(row.get("Weight", "")),
+
             str(row.get("Timing", "")),
+
             money(row.get("Amount", 0))
         ])
 
     trips_table = Table(
         rows,
         colWidths=[
-            9 * mm, 16 * mm, 22 * mm, 38 * mm,
-            40 * mm, 18 * mm, 25 * mm, 18 * mm
+            9 * mm,
+            16 * mm,
+            22 * mm,
+            38 * mm,
+            40 * mm,
+            18 * mm,
+            25 * mm,
+            18 * mm
         ],
         repeatRows=1
     )
+
     trips_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), navy),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -251,13 +335,18 @@ def make_pdf(data):
         ("TOPPADDING", (0, 0), (-1, -1), 6),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6)
     ]))
+
     story.extend([trips_table, Spacer(1, 8)])
 
+    # GRAND TOTAL only
     total_table = Table(
-        [["GRAND TOTAL", money(data["grand_total"])]],
+        [
+            ["GRAND TOTAL", money(data["grand_total"])]
+        ],
         colWidths=[43 * mm, 35 * mm],
         hAlign="RIGHT"
     )
+
     total_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
         ("ALIGN", (1, 0), (1, 0), "RIGHT"),
@@ -266,8 +355,10 @@ def make_pdf(data):
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9)
     ]))
+
     story.extend([total_table, Spacer(1, 12)])
 
+    # Bank details
     bank_lines = [
         ("Bank Name", data["bank"]),
         ("Account Name", data["account_name"]),
@@ -276,48 +367,72 @@ def make_pdf(data):
         ("Branch", data["branch"]),
         ("UPI ID", data["upi"])
     ]
+
     filled_bank_lines = [
-        f"<b>{label}:</b> {value}"
-        for label, value in bank_lines if value.strip()
+        f"<b>{label}:</b> {escape(str(value))}"
+        for label, value in bank_lines
+        if str(value).strip()
     ]
+
     story.append(Paragraph("<b>Bank Details</b>", body))
+
     if filled_bank_lines:
-        story.append(Paragraph("<br/>".join(filled_bank_lines), body))
+        story.append(
+            Paragraph("<br/>".join(filled_bank_lines), body)
+        )
     else:
-        story.append(Paragraph("Bank details will be added later.", body))
+        story.append(
+            Paragraph("Bank details will be added later.", body)
+        )
+
     story.append(Spacer(1, 18))
 
-    
-    # Signature between company name and authorised signatory
- 
-    # Right-aligned company name, signature and designation
-    right_sign = ParagraphStyle(
-        "RightSign",
-        parent=body,
-        alignment=2
-    )
-
+    # Signature between company name and Authorised Signatory
     signature_cell = ""
 
     if SIGNATURE_PATH.exists():
-        image_reader = ImageReader(str(SIGNATURE_PATH))
-        image_width, image_height = image_reader.getSize()
 
-        target_width = 42 * mm
-        target_height = target_width * image_height / image_width
+        try:
+            image_reader = ImageReader(str(SIGNATURE_PATH))
+            image_width, image_height = image_reader.getSize()
 
-        signature_cell = RLImage(
-            str(SIGNATURE_PATH),
-            width=target_width,
-            height=target_height,
-            hAlign="RIGHT"
+            target_width = 42 * mm
+            target_height = target_width * image_height / image_width
+
+            signature_cell = RLImage(
+                str(SIGNATURE_PATH),
+                width=target_width,
+                height=target_height,
+                hAlign="RIGHT"
+            )
+
+        except Exception:
+            signature_cell = Paragraph(
+                "[Signature image could not be loaded]",
+                right_sign
+            )
+
+    else:
+        signature_cell = Paragraph(
+            "[Add default_esign.png beside app.py]",
+            right_sign
         )
 
     signoff = Table(
         [
-            [Paragraph(f"<b>For {data['company_name']}</b>", right_sign)],
+            [
+                Paragraph(
+                    f"<b>For {escape(data['company_name'])}</b>",
+                    right_sign
+                )
+            ],
             [signature_cell],
-            [Paragraph("Authorised Signatory", right_sign)]
+            [
+                Paragraph(
+                    "Authorised Signatory",
+                    right_sign
+                )
+            ]
         ],
         colWidths=[75 * mm],
         hAlign="RIGHT"
@@ -334,11 +449,13 @@ def make_pdf(data):
 
     story.append(signoff)
 
-
     doc.build(story)
+
     buffer.seek(0)
     return buffer.getvalue()
 
+
+# ------------------------- STREAMLIT APP -------------------------
 
 st.markdown(
     '<div class="app-banner">'
@@ -349,55 +466,101 @@ st.markdown(
 )
 
 with st.sidebar:
+
     st.markdown("### Company profile")
     st.caption("Default company: Sri Selvamurugan Transports")
     st.caption("Company and bank details can be edited in the form.")
+
     st.markdown("---")
+
     st.markdown("**Workflow**")
     st.caption("1. Confirm company and customer details")
     st.caption("2. Add transport trip rows")
     st.caption("3. Generate and download the PDF")
 
+
+# ------------------------- COMPANY AND INVOICE -------------------------
+
 st.markdown("## 01 · Company and invoice details")
+
 st.markdown(
     '<div class="section-note">Company information and invoice reference.</div>',
     unsafe_allow_html=True
 )
 
 left, right = st.columns(2)
+
 with left:
-    company_name = st.text_input("Company name", DEFAULT_COMPANY_NAME)
+
+    company_name = st.text_input(
+        "Company name",
+        DEFAULT_COMPANY_NAME
+    )
+
     company_address = st.text_area(
-        "Company address", DEFAULT_COMPANY_ADDRESS, height=85
+        "Company address",
+        DEFAULT_COMPANY_ADDRESS,
+        height=85
     )
+
     company_mobile = st.text_input(
-        "Company mobile number", DEFAULT_COMPANY_MOBILE
+        "Company mobile number",
+        DEFAULT_COMPANY_MOBILE
     )
+
 with right:
-    bill_title = st.text_input("Bill title", DEFAULT_BILL_TITLE)
+
+    bill_title = st.text_input(
+        "Bill title",
+        DEFAULT_BILL_TITLE
+    )
+
     invoice_no = st.text_input(
-        "Invoice number", f"INV-{date.today():%Y%m%d}-001"
+        "Invoice number",
+        f"INV-{date.today():%Y%m%d}-001"
     )
-    invoice_date = st.date_input("Invoice date", date.today())
+
+    invoice_date = st.date_input(
+        "Invoice date",
+        date.today()
+    )
+
     billing_month = st.text_input(
-        "Billing month", date.today().strftime("%B %Y")
+        "Billing month",
+        date.today().strftime("%B %Y")
     )
+
+
+# ------------------------- CUSTOMER DETAILS -------------------------
 
 st.markdown("---")
 st.markdown("## 02 · Customer details")
+
 left, right = st.columns(2)
+
 with left:
+
     client_name = st.text_input(
-        "Customer / Bill To name", DEFAULT_CUSTOMER_NAME
+        "Customer / Bill To name",
+        DEFAULT_CUSTOMER_NAME
     )
+
     client_address = st.text_area(
-        "Customer address", DEFAULT_CUSTOMER_ADDRESS, height=85
+        "Customer address",
+        DEFAULT_CUSTOMER_ADDRESS,
+        height=85
     )
+
 with right:
+
     st.info("Customer mobile number and GSTIN are not included.")
+
+
+# ------------------------- TRANSPORT TRIPS -------------------------
 
 st.markdown("---")
 st.markdown("## 03 · Transport trip details")
+
 st.markdown(
     '<div class="section-note">Add a row for each trip. '
     'Enter the charge in the final column.</div>',
@@ -419,19 +582,30 @@ trips = st.data_editor(
     use_container_width=True,
     column_config={
         "Amount": st.column_config.NumberColumn(
-            "Amount", min_value=0, step=100, format="%.2f"
+            "Amount",
+            min_value=0,
+            step=100,
+            format="%.2f"
         ),
+
         "To": st.column_config.TextColumn(
-            "To / Destination", width="medium"
+            "To / Destination",
+            width="medium"
         ),
+
         "Timing": st.column_config.TextColumn(
-            "Timing", width="medium"
+            "Timing",
+            width="medium"
         )
     },
     key="trip_editor"
 )
 
+
+# ------------------------- BILL NUMBERS -------------------------
+
 st.markdown("### Bill number(s) for each S.No.")
+
 st.caption(
     "Enter bill numbers up to 25 characters (letters, digits and symbols). "
     "Press Enter for another bill number on the same S.No.; long numbers "
@@ -441,7 +615,10 @@ st.caption(
 bill_numbers_by_row = []
 
 for row_index in range(len(trips)):
-    existing_bill = str(trips.iloc[row_index].get("Bill No", "") or "")
+
+    existing_bill = str(
+        trips.iloc[row_index].get("Bill No", "") or ""
+    )
 
     if row_index == 0 and not existing_bill:
         existing_bill = "F22633002100"
@@ -451,29 +628,68 @@ for row_index in range(len(trips)):
         value=existing_bill,
         key=f"bill_numbers_row_{row_index}",
         height=68,
-        placeholder="Up to 25 characters; press Enter for the next bill number."
+        placeholder=(
+            "Up to 25 characters; press Enter for the next bill number."
+        )
     )
 
     bill_numbers_by_row.append(bill_text)
 
+
+# ------------------------- BANK DETAILS -------------------------
+
 st.markdown("---")
 st.markdown("## 04 · Bank details")
-st.caption("You can enter these details later, once finalised.")
+
+st.caption("You can edit these default bank details if required.")
+
 col_a, col_b = st.columns(2)
+
 with col_a:
-    bank = st.text_input("Bank name", value="")
-    account_name = st.text_input("Account name", value="")
-    account_number = st.text_input("Account number", value="")
+
+    bank = st.text_input(
+        "Bank name",
+        value="SBI"
+    )
+
+    account_name = st.text_input(
+        "Account name",
+        value="K SATISH KUMAR"
+    )
+
+    account_number = st.text_input(
+        "Account number",
+        value="123456789"
+    )
+
 with col_b:
-    ifsc = st.text_input("IFSC code", value="")
-    branch = st.text_input("Branch", value="")
-    upi = st.text_input("UPI ID (optional)", value="")
+
+    ifsc = st.text_input(
+        "IFSC code",
+        value="SBIN001061"
+    )
+
+    branch = st.text_input(
+        "Branch",
+        value="SULUR"
+    )
+
+    upi = st.text_input(
+        "UPI ID (optional)",
+        value=""
+    )
+
+
+# ------------------------- TERMS -------------------------
 
 terms = st.text_area(
     "Terms and conditions (one per line)",
     "Goods transported at owner's risk as per standard carriage terms.\n"
     "Subject to Sulur / Coimbatore jurisdiction only."
 )
+
+
+# ------------------------- GENERATE INVOICE -------------------------
 
 submitted = st.button(
     "Generate invoice",
@@ -482,18 +698,33 @@ submitted = st.button(
 )
 
 if submitted:
+
     items = []
-    for row_index, row in enumerate(trips.fillna("").to_dict("records")):
+
+    for row_index, row in enumerate(
+        trips.fillna("").to_dict("records")
+    ):
+
         row["Bill No"] = (
             bill_numbers_by_row[row_index]
             if row_index < len(bill_numbers_by_row)
             else str(row.get("Bill No", ""))
         )
-        amount = pd.to_numeric(row.get("Amount", 0), errors="coerce")
-        row["Amount"] = float(amount) if pd.notna(amount) else 0.0
+
+        amount = pd.to_numeric(
+            row.get("Amount", 0),
+            errors="coerce"
+        )
+
+        row["Amount"] = (
+            float(amount) if pd.notna(amount) else 0.0
+        )
+
         items.append(row)
 
-    grand_total = sum(item["Amount"] for item in items)
+    grand_total = sum(
+        item["Amount"] for item in items
+    )
 
     st.session_state.invoice_data = {
         "company_name": company_name,
@@ -516,13 +747,20 @@ if submitted:
         "terms": terms
     }
 
-   
+
+# ------------------------- DOWNLOAD PDF -------------------------
 
 if "invoice_data" in st.session_state:
+
     data = st.session_state.invoice_data
+
     st.markdown("---")
     st.markdown("## Invoice summary")
-    st.metric("GRAND TOTAL", money(data["grand_total"]))
+
+    st.metric(
+        "GRAND TOTAL",
+        money(data["grand_total"])
+    )
 
     st.download_button(
         "⬇ Download Transport Bill PDF",
@@ -534,6 +772,7 @@ if "invoice_data" in st.session_state:
     )
 
     with st.expander("Review trip entries"):
+
         st.dataframe(
             pd.DataFrame(data["items"]),
             use_container_width=True,
@@ -543,7 +782,9 @@ if "invoice_data" in st.session_state:
     st.caption(
         "Please verify the invoice details and amount before issuing the bill."
     )
+
 else:
+
     st.info(
         "Confirm the details above, add the trip entries, and select "
         "**Generate invoice** to prepare the PDF."
