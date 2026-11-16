@@ -1,8 +1,10 @@
+
 import streamlit as st
 import pandas as pd
 from datetime import date
 from io import BytesIO
 from pathlib import Path
+import textwrap
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
@@ -20,7 +22,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# ------------------------- DEFAULT DETAILS -------------------------
 DEFAULT_COMPANY_NAME = "Sri Selvamurugan Transports"
 DEFAULT_COMPANY_ADDRESS = (
     "3/211-14, Silver Springs, Kangayempalayam, Sulur-641402"
@@ -33,7 +34,6 @@ DEFAULT_CUSTOMER_ADDRESS = (
     "272/B, KALIYAPURAM, NORTH SULUR, COIMBATORE-641406"
 )
 
-# Keep default_esign.png in the same folder as this app.py file.
 SIGNATURE_PATH = Path(__file__).resolve().parent / "default_esign.png"
 
 st.markdown("""
@@ -82,7 +82,6 @@ hr {border-color:#dce4ef!important}
 
 
 def money(value):
-    """Format an amount without a currency symbol."""
     try:
         return f"{float(value or 0):,.2f}"
     except (TypeError, ValueError):
@@ -122,6 +121,14 @@ def make_pdf(data):
     )
     bill_number_style = ParagraphStyle(
         "BillNumber",
+        parent=body,
+        fontSize=6.5,
+        leading=8,
+        wordWrap="CJK",
+        splitLongWords=1
+    )
+    destination_style = ParagraphStyle(
+        "Destination",
         parent=body,
         fontSize=6.5,
         leading=8,
@@ -189,6 +196,7 @@ def make_pdf(data):
         "S.No.", "Date", "Vehicle No.", "Bill No(s)",
         "To", "Weight", "Timing", "Amount"
     ]]
+
     for index, row in enumerate(data["items"], start=1):
         rows.append([
             str(index),
@@ -202,7 +210,18 @@ def make_pdf(data):
                 ),
                 bill_number_style
             ),
-            str(row.get("To", "")),
+            Paragraph(
+                "<br/>".join(
+                    escape(line)
+                    for line in textwrap.wrap(
+                        str(row.get("To", "")).strip(),
+                        width=19,
+                        break_long_words=True,
+                        break_on_hyphens=True
+                    )
+                ),
+                destination_style
+            ),
             str(row.get("Weight", "")),
             str(row.get("Timing", "")),
             money(row.get("Amount", 0))
@@ -212,7 +231,7 @@ def make_pdf(data):
         rows,
         colWidths=[
             9 * mm, 16 * mm, 22 * mm, 38 * mm,
-            28 * mm, 18 * mm, 25 * mm, 30 * mm
+            40 * mm, 18 * mm, 25 * mm, 18 * mm
         ],
         repeatRows=1
     )
@@ -234,7 +253,6 @@ def make_pdf(data):
     ]))
     story.extend([trips_table, Spacer(1, 8)])
 
-    # Show GRAND TOTAL only; no subtotal, GST, advance paid or trip-count row.
     total_table = Table(
         [["GRAND TOTAL", money(data["grand_total"])]],
         colWidths=[43 * mm, 35 * mm],
@@ -250,7 +268,6 @@ def make_pdf(data):
     ]))
     story.extend([total_table, Spacer(1, 12)])
 
-    # Bank details are intentionally blank until the user finalises them.
     bank_lines = [
         ("Bank Name", data["bank"]),
         ("Account Name", data["account_name"]),
@@ -259,7 +276,10 @@ def make_pdf(data):
         ("Branch", data["branch"]),
         ("UPI ID", data["upi"])
     ]
-    filled_bank_lines = [f"<b>{label}:</b> {value}" for label, value in bank_lines if value.strip()]
+    filled_bank_lines = [
+        f"<b>{label}:</b> {value}"
+        for label, value in bank_lines if value.strip()
+    ]
     story.append(Paragraph("<b>Bank Details</b>", body))
     if filled_bank_lines:
         story.append(Paragraph("<br/>".join(filled_bank_lines), body))
@@ -267,7 +287,6 @@ def make_pdf(data):
         story.append(Paragraph("Bank details will be added later.", body))
     story.append(Spacer(1, 18))
 
-    # Reusable uploaded signature image, placed above Authorised Signatory.
     if SIGNATURE_PATH.exists():
         try:
             image_reader = ImageReader(str(SIGNATURE_PATH))
@@ -326,7 +345,6 @@ def make_pdf(data):
     return buffer.getvalue()
 
 
-# ------------------------- APPLICATION UI -------------------------
 st.markdown(
     '<div class="app-banner">'
     '<h1>🚚 Transport Bill Generator</h1>'
@@ -424,6 +442,7 @@ st.caption(
     "Press Enter for another bill number on the same S.No.; long numbers "
     "will wrap within the PDF column."
 )
+
 bill_numbers_by_row = []
 for row_index in range(len(trips)):
     existing_bill = str(trips.iloc[row_index].get("Bill No", "") or "")
@@ -461,7 +480,6 @@ submitted = st.button(
     use_container_width=True
 )
 
-
 if submitted:
     items = []
     for row_index, row in enumerate(trips.fillna("").to_dict("records")):
@@ -496,7 +514,6 @@ if submitted:
         "upi": upi,
         "terms": terms
     }
-
 
 if "invoice_data" in st.session_state:
     data = st.session_state.invoice_data
