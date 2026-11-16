@@ -294,7 +294,7 @@ def make_pdf(data):
     right_sign = ParagraphStyle(
         "RightSign",
         parent=body,
-        alignment=TA_RIGHT
+        alignment=2
     )
 
     signature_cell = ""
